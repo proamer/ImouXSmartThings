@@ -1,60 +1,30 @@
 /**
  * OAuth2 Token Store
  *
- * Persistent store for authorization codes, access tokens, and refresh tokens.
- * Uses a JSON file for storage so tokens survive server restarts.
+ * In-memory store for authorization codes, access tokens, and refresh tokens.
+ * Compatible with serverless environments (Vercel, AWS Lambda, etc.)
  *
- * In production, replace with a proper database (Redis, MongoDB, etc.)
+ * NOTE: In serverless, tokens are lost on cold starts.
+ * SmartThings handles this gracefully — it will re-authenticate
+ * via the refresh token flow or re-authorize if needed.
+ *
+ * For true persistence, integrate a database (e.g., Redis, MongoDB, Vercel KV).
  */
 
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-
-const STORE_PATH = path.join(__dirname, '../../data/oauth-tokens.json');
 
 // Default token lifetimes
 const ACCESS_TOKEN_LIFETIME = 24 * 60 * 60;   // 24 hours in seconds
 const REFRESH_TOKEN_LIFETIME = 30 * 24 * 60 * 60; // 30 days in seconds
 const AUTH_CODE_LIFETIME = 10 * 60;             // 10 minutes in seconds
 
-/**
- * Ensure data directory exists and load store from disk.
- */
-function loadStore() {
-  try {
-    const dir = path.dirname(STORE_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    if (fs.existsSync(STORE_PATH)) {
-      const raw = fs.readFileSync(STORE_PATH, 'utf-8');
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    logger.warn('Failed to load token store, starting fresh', { error: err.message });
-  }
-  return { authCodes: {}, accessTokens: {}, refreshTokens: {} };
-}
-
-/**
- * Save store to disk.
- */
-function saveStore(store) {
-  try {
-    const dir = path.dirname(STORE_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), 'utf-8');
-  } catch (err) {
-    logger.error('Failed to save token store', { error: err.message });
-  }
-}
-
-// Initialize store
-let store = loadStore();
+// In-memory store (works in both local and serverless)
+const store = {
+  authCodes: {},
+  accessTokens: {},
+  refreshTokens: {},
+};
 
 /**
  * Generate a cryptographically secure random token.
@@ -84,7 +54,6 @@ function createAuthCode({ clientId, redirectUri, scope, state }) {
     used: false,
   };
 
-  saveStore(store);
   logger.info('Auth code created', { code: code.substring(0, 16) + '...' });
   return code;
 }
@@ -106,7 +75,6 @@ function consumeAuthCode(code, clientId) {
     // Code reuse detected — revoke all tokens from this code (security)
     logger.warn('Auth code reuse detected! Revoking associated tokens.');
     delete store.authCodes[code];
-    saveStore(store);
     return null;
   }
 
@@ -114,7 +82,6 @@ function consumeAuthCode(code, clientId) {
   if (now > codeData.expiresAt) {
     logger.warn('Auth code expired');
     delete store.authCodes[code];
-    saveStore(store);
     return null;
   }
 
@@ -125,7 +92,6 @@ function consumeAuthCode(code, clientId) {
 
   // Mark as used
   codeData.used = true;
-  saveStore(store);
 
   return codeData;
 }
@@ -154,8 +120,6 @@ function issueTokens(clientId, scope) {
     expiresAt: now + REFRESH_TOKEN_LIFETIME,
   };
 
-  saveStore(store);
-
   logger.info('Tokens issued', {
     accessToken: accessToken.substring(0, 12) + '...',
     expiresIn: ACCESS_TOKEN_LIFETIME,
@@ -181,7 +145,6 @@ function validateAccessToken(token) {
   if (now > tokenData.expiresAt) {
     logger.debug('Access token expired');
     delete store.accessTokens[token];
-    saveStore(store);
     return null;
   }
 
@@ -204,7 +167,6 @@ function refreshTokens(refreshToken, clientId) {
   if (now > rtData.expiresAt) {
     logger.warn('Refresh token expired');
     delete store.refreshTokens[refreshToken];
-    saveStore(store);
     return null;
   }
 
@@ -240,7 +202,6 @@ function cleanExpiredCodes() {
     }
   }
   if (cleaned > 0) {
-    saveStore(store);
     logger.debug(`Cleaned ${cleaned} expired/used auth codes`);
   }
 }
@@ -269,13 +230,9 @@ function cleanExpiredTokens() {
   cleanExpiredCodes();
 
   if (cleaned > 0) {
-    saveStore(store);
     logger.info(`Token cleanup: removed ${cleaned} expired tokens`);
   }
 }
-
-// Run token cleanup every hour
-setInterval(cleanExpiredTokens, 60 * 60 * 1000);
 
 module.exports = {
   createAuthCode,
