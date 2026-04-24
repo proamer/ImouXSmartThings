@@ -1,0 +1,33 @@
+{
+  "name": "imou-x-smartthings",
+  "version": "1.0.0",
+  "description": "SmartThings Schema Connector for Imou cameras — bridges Imou Open API with SmartThings Cloud-to-Cloud integration",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test:imou": "node scripts/test-imou.js",
+    "test:webhook": "node scripts/test-webhook.js"
+  },
+  "keywords": [
+    "imou",
+    "smartthings",
+    "iot",
+    "camera",
+    "webhook",
+    "st-schema"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "md5": "^2.3.0",
+    "uuid": "^10.0.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
