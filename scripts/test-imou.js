@@ -9,6 +9,7 @@
  * 3. Checks device online status (first device)
  */
 
+
 require('dotenv').config();
 
 const { getAccessToken } = require('../src/imou/auth');
