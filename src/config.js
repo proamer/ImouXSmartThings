@@ -24,9 +24,11 @@ const config = {
     webhookSecret: process.env.WEBHOOK_SECRET || '',
   },
 
-  // OAuth2 Placeholder
+  // OAuth2 Server (for SmartThings Schema Connector)
   oauth: {
-    staticToken: process.env.OAUTH_STATIC_TOKEN || 'dev-test-token-12345',
+    clientId: process.env.OAUTH_CLIENT_ID || '',
+    clientSecret: process.env.OAUTH_CLIENT_SECRET || '',
+    scope: process.env.OAUTH_SCOPE || 'imou:cameras',
   },
 };
 
