@@ -39,6 +39,7 @@ async function getDeviceState(externalDeviceId) {
 
   try {
     // 1. Check online status
+    // deviceOnline returns { deviceId, onLine: '1'|'0', channels: [...] }
     const onlineData = await getDeviceOnline(deviceId, channelId);
     const isOnline = onlineData?.onLine === '1';
 
@@ -60,28 +61,36 @@ async function getDeviceState(externalDeviceId) {
 
     // 2. Get snapshot URL (only if online)
     if (isOnline) {
-      const snapshotUrl = await getSnapshot(deviceId, channelId);
-      if (snapshotUrl) {
-        states.push({
-          component: 'main',
-          capability: 'st.imageCapture',
-          attribute: 'image',
-          value: snapshotUrl,
-        });
+      try {
+        const snapshotUrl = await getSnapshot(deviceId, channelId);
+        if (snapshotUrl) {
+          states.push({
+            component: 'main',
+            capability: 'st.imageCapture',
+            attribute: 'image',
+            value: snapshotUrl,
+          });
+        }
+      } catch (snapErr) {
+        logger.warn(`Snapshot failed for ${deviceId}:${channelId}`, { error: snapErr.message });
       }
 
-      // 3. Try to get HLS stream URL
-      const streamUrl = await getStreamUrl(deviceId, channelId);
-      if (streamUrl) {
-        states.push({
-          component: 'main',
-          capability: 'st.videoStream',
-          attribute: 'stream',
-          value: {
-            protocol: 'hls',
-            uri: streamUrl,
-          },
-        });
+      // 3. Get HLS live stream URL
+      try {
+        const streamResult = await getStreamUrl(deviceId, channelId);
+        if (streamResult?.url) {
+          states.push({
+            component: 'main',
+            capability: 'st.videoStream',
+            attribute: 'stream',
+            value: {
+              protocol: 'hls',
+              uri: streamResult.url,
+            },
+          });
+        }
+      } catch (streamErr) {
+        logger.warn(`Stream URL failed for ${deviceId}:${channelId}`, { error: streamErr.message });
       }
     }
 
