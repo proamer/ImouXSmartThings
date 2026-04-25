@@ -53,16 +53,19 @@ async function unbindDeviceLive(liveToken) {
 async function getLiveStreamInfo(deviceId, channelId = '0') {
   try {
     const data = await callImouApi('/getLiveStreamInfo', { deviceId, channelId });
-    const hlsUrl =
-      data?.streams?.find((s) => s.hls)?.hls ||
-      data?.hls ||
-      null;
 
-    if (hlsUrl) {
+    // Prefer HTTPS streams (proto=https) over HTTP for SmartThings compatibility
+    const streams = data?.streams || [];
+    const httpsStream = streams.find((s) => s.hls?.startsWith('https://'));
+    const httpStream = streams.find((s) => s.hls?.startsWith('http://'));
+    const chosen = httpsStream || httpStream;
+
+    if (chosen?.hls) {
+      logger.info(`getLiveStreamInfo: using ${httpsStream ? 'HTTPS' : 'HTTP'} stream for ${deviceId}`);
       return {
-        url: hlsUrl,
-        liveToken: data?.liveToken || null,
-        coverUrl: data?.streams?.find((s) => s.coverUrl)?.coverUrl || null,
+        url: chosen.hls,
+        liveToken: chosen?.liveToken || null,
+        coverUrl: chosen?.coverUrl || null,
       };
     }
     return null;
@@ -90,20 +93,22 @@ async function getStreamUrl(deviceId, channelId = '0') {
     try {
       const result = await bindDeviceLive(deviceId, channelId, streamId);
 
-      const hlsUrl =
-        result?.streams?.find((s) => s.hls)?.hls ||
-        result?.hls ||
-        null;
+      const streams = result?.streams || [];
+      const httpsStream = streams.find((s) => s.hls?.startsWith('https://'));
+      const httpStream = streams.find((s) => s.hls?.startsWith('http://'));
+      const chosen = httpsStream || httpStream;
+      const hlsUrl = chosen?.hls || result?.hls || null;
 
       if (hlsUrl) {
         logger.info(`HLS URL obtained for ${deviceId}:${channelId}`, {
           streamId,
+          protocol: hlsUrl.startsWith('https') ? 'HTTPS' : 'HTTP',
           url: hlsUrl.substring(0, 80) + '...',
         });
         return {
           url: hlsUrl,
-          liveToken: result?.liveToken || null,
-          coverUrl: result?.streams?.find((s) => s.coverUrl)?.coverUrl || null,
+          liveToken: chosen?.liveToken || result?.liveToken || null,
+          coverUrl: chosen?.coverUrl || null,
         };
       }
     } catch (error) {
