@@ -5,7 +5,7 @@
  * Tokens are automatically refreshed before expiry.
  *
  * API: POST {apiBase}/accessToken
- * Sign: md5("time:{time},appId:{appId},appSecret:{appSecret}")
+ * Sign: md5("time:{time},nonce:{nonce},appSecret:{appSecret}")
  */
 
 const axios = require('axios');
@@ -37,7 +37,7 @@ async function getAccessToken() {
   logger.info('Fetching new Imou access token...');
 
   const time = Math.floor(now / 1000);
-  const sign = generateSign(time, config.imou.appId, config.imou.appSecret);
+  const { sign, nonce } = generateSign(time, config.imou.appSecret);
 
   try {
     const response = await axios.post(`${config.imou.apiBase}/accessToken`, {
@@ -46,7 +46,9 @@ async function getAccessToken() {
         appId: config.imou.appId,
         sign,
         time,
+        nonce,
       },
+      id: '1',
       params: {},
     });
 
@@ -61,8 +63,8 @@ async function getAccessToken() {
 
     // Cache the token
     cachedToken = accessToken;
-    // expireTime is in seconds, convert to milliseconds
-    tokenExpireTime = expireTime * 1000;
+    // expireTime is in seconds (remaining), convert to absolute ms
+    tokenExpireTime = Date.now() + (expireTime * 1000);
 
     logger.info('Imou access token obtained successfully', {
       expiresAt: new Date(tokenExpireTime).toISOString(),

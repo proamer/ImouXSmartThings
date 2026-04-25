@@ -3,46 +3,55 @@
  *
  * Provides functions to list devices, check online status,
  * and query device capabilities from the Imou Open Platform.
+ *
+ * deviceOpenList uses cursor-based pagination with bindId/limit.
  */
 
 const { callImouApi } = require('./client');
 const logger = require('../utils/logger');
 
 /**
- * List all devices registered on the Imou account.
- * Uses the `deviceOpenList` API for paginated device listing.
+ * List devices registered on the Imou account using cursor-based pagination.
+ * Uses the `deviceOpenList` API.
  *
- * @param {number} [page=1] - Page number (1-indexed)
- * @param {number} [pageSize=50] - Number of devices per page
+ * @param {string} [bindId='-1'] - Last device ID from previous query ('-1' for first)
+ * @param {number} [limit=128] - Number of entries per page (max 128)
  * @returns {Promise<object>} { deviceList: [...], count: number }
  */
-async function listDevices(page = 1, pageSize = 50) {
+async function listDevices(bindId = '-1', limit = 128) {
   const data = await callImouApi('/deviceOpenList', {
-    pageSize: String(pageSize),
-    page: String(page),
+    bindId: String(bindId),
+    limit: String(limit),
+    type: 'bind',
+    needApInfo: 'true',
   });
 
-  logger.info(`Listed ${data.deviceList?.length || 0} devices (page ${page})`);
+  logger.info(`Listed ${data.deviceList?.length || 0} devices (bindId: ${bindId})`);
   return data;
 }
 
 /**
- * Get all devices across all pages.
+ * Get all devices across all pages using cursor-based pagination.
  *
  * @returns {Promise<Array>} All devices
  */
 async function listAllDevices() {
   const allDevices = [];
-  let page = 1;
-  const pageSize = 50;
+  let bindId = '-1';
+  const limit = 128;
 
   while (true) {
-    const data = await listDevices(page, pageSize);
+    const data = await listDevices(bindId, limit);
     const devices = data.deviceList || [];
     allDevices.push(...devices);
 
-    if (devices.length < pageSize) break;
-    page++;
+    // If we got fewer devices than the limit, we've fetched all
+    if (devices.length < limit) break;
+
+    // Use the last device's bindId for cursor-based pagination
+    const lastDevice = devices[devices.length - 1];
+    bindId = lastDevice.deviceId || lastDevice.bindId;
+    if (!bindId) break;
   }
 
   logger.info(`Total devices found: ${allDevices.length}`);

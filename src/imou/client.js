@@ -4,7 +4,7 @@
  * Wraps all Imou Open Platform API calls with:
  * - Automatic access token injection
  * - Standard request envelope (system + params + id)
- * - Sign generation per request
+ * - Sign generation per request (with nonce)
  * - Error handling and logging
  *
  * All Imou APIs use POST method.
@@ -41,7 +41,7 @@ const httpClient = axios.create({
 async function callImouApi(endpoint, params = {}) {
   const accessToken = await getAccessToken();
   const time = Math.floor(Date.now() / 1000);
-  const sign = generateSign(time, config.imou.appId, config.imou.appSecret);
+  const { sign, nonce } = generateSign(time, config.imou.appSecret);
   const requestId = uuidv4();
 
   const requestBody = {
@@ -50,6 +50,7 @@ async function callImouApi(endpoint, params = {}) {
       appId: config.imou.appId,
       sign,
       time,
+      nonce,
     },
     params: {
       ...params,
