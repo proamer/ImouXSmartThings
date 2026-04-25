@@ -4,26 +4,27 @@
  * Provides functions to list devices, check online status,
  * and query device capabilities from the Imou Open Platform.
  *
- * deviceOpenList uses cursor-based pagination with bindId/limit.
+ * Uses `deviceBaseList` to list devices bound to the Imou Life app.
+ * Parameters must use correct types: numbers for bindId/limit, boolean for needApInfo.
  */
 
 const { callImouApi } = require('./client');
 const logger = require('../utils/logger');
 
 /**
- * List devices registered on the Imou account using cursor-based pagination.
- * Uses the `deviceOpenList` API.
+ * List devices registered on the Imou Life app using cursor-based pagination.
+ * Uses the `deviceBaseList` API for consumer (Imou Life) bound devices.
  *
- * @param {string} [bindId='-1'] - Last device ID from previous query ('-1' for first)
+ * @param {number} [bindId=-1] - Last bindId from previous query (-1 for first)
  * @param {number} [limit=128] - Number of entries per page (max 128)
  * @returns {Promise<object>} { deviceList: [...], count: number }
  */
-async function listDevices(bindId = '-1', limit = 128) {
-  const data = await callImouApi('/deviceOpenList', {
-    bindId: String(bindId),
-    limit: String(limit),
-    type: 'bind',
-    needApInfo: 'true',
+async function listDevices(bindId = -1, limit = 128) {
+  const data = await callImouApi('/deviceBaseList', {
+    bindId,
+    limit,
+    type: 'bindAndShare',
+    needApInfo: true,
   });
 
   logger.info(`Listed ${data.deviceList?.length || 0} devices (bindId: ${bindId})`);
@@ -37,7 +38,7 @@ async function listDevices(bindId = '-1', limit = 128) {
  */
 async function listAllDevices() {
   const allDevices = [];
-  let bindId = '-1';
+  let bindId = -1;
   const limit = 128;
 
   while (true) {
@@ -50,8 +51,8 @@ async function listAllDevices() {
 
     // Use the last device's bindId for cursor-based pagination
     const lastDevice = devices[devices.length - 1];
-    bindId = lastDevice.deviceId || lastDevice.bindId;
-    if (!bindId) break;
+    bindId = lastDevice.bindId;
+    if (!bindId && bindId !== 0) break;
   }
 
   logger.info(`Total devices found: ${allDevices.length}`);

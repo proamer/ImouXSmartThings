@@ -34,16 +34,17 @@ async function handleDiscovery(requestId) {
       for (const channel of channels) {
         const channelId = channel.channelId || '0';
         const externalDeviceId = `imou-${deviceId}-${channelId}`;
+        const friendlyName = channel.channelName || `Imou Camera ${deviceId}`;
 
         const deviceProfile = {
           externalDeviceId,
-          friendlyName: device.name || `Imou Camera ${deviceId}`,
+          friendlyName,
           deviceHandlerType: 'c2c-camera',
           manufacturerInfo: {
             manufacturerName: 'Imou',
-            modelName: device.deviceModel || 'IPC',
-            hwVersion: device.version || '1.0',
-            swVersion: device.firmwareVersion || '1.0',
+            modelName: channel.productId || 'IPC',
+            hwVersion: '1.0',
+            swVersion: '1.0',
           },
           deviceContext: {
             roomName: '',
