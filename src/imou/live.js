@@ -3,9 +3,8 @@
  *
  * Creates and retrieves HLS live stream URLs from Imou cameras.
  *
- * bindDeviceLive requires:
- *   - deviceId, channelId, streamId (0=HD, 1=SD)
- * Response has streams[].hls for the HLS URL.
+ * bindDeviceLive requires: deviceId, channelId, streamId (0=HD, 1=SD)
+ * LV1001 means stream session already exists → use getLiveStreamInfo instead.
  */
 
 const { callImouApi } = require('./client');
@@ -23,9 +22,8 @@ async function bindDeviceLive(deviceId, channelId = '0', streamId = 0) {
   const data = await callImouApi('/bindDeviceLive', {
     deviceId,
     channelId,
-    streamId,          // integer, required
+    streamId,    // integer, required by Imou API
   });
-
   logger.info(`Live stream bound for ${deviceId}:${channelId} (streamId=${streamId})`);
   return data;
 }
@@ -39,27 +37,59 @@ async function bindDeviceLive(deviceId, channelId = '0', streamId = 0) {
 async function unbindDeviceLive(liveToken) {
   try {
     await callImouApi('/unbindDeviceLive', { liveToken });
-    logger.info(`Live stream unbound (token: ${liveToken?.substring(0, 12)}...)`);
+    logger.info(`Live stream unbound (token: ${String(liveToken).substring(0, 20)}...)`);
   } catch (error) {
     logger.warn('Failed to unbind live stream', { error: error.message });
   }
 }
 
 /**
- * Get the HLS stream URL for a device.
- * Binds a new stream session (HD first, falls back to SD).
+ * Get an existing live stream info for a device (when stream already bound = LV1001).
+ *
+ * @param {string} deviceId   - Imou device serial number
+ * @param {string} channelId  - Channel ID
+ * @returns {Promise<{url: string, liveToken: string}|null>}
+ */
+async function getLiveStreamInfo(deviceId, channelId = '0') {
+  try {
+    const data = await callImouApi('/getLiveStreamInfo', { deviceId, channelId });
+    const hlsUrl =
+      data?.streams?.find((s) => s.hls)?.hls ||
+      data?.hls ||
+      null;
+
+    if (hlsUrl) {
+      return {
+        url: hlsUrl,
+        liveToken: data?.liveToken || null,
+        coverUrl: data?.streams?.find((s) => s.coverUrl)?.coverUrl || null,
+      };
+    }
+    return null;
+  } catch (error) {
+    logger.warn(`getLiveStreamInfo failed for ${deviceId}`, { error: error.message });
+    return null;
+  }
+}
+
+/**
+ * Get a usable HLS stream URL for a device.
+ *
+ * Strategy:
+ *   1. Try bindDeviceLive (streamId=0 HD)
+ *   2. If LV1001 (stream already exists) → call getLiveStreamInfo to get existing URL
+ *   3. If getLiveStreamInfo also fails → unbind old session then rebind
+ *   4. Fallback to SD (streamId=1)
  *
  * @param {string} deviceId  - Imou device serial number
  * @param {string} channelId - Channel ID (e.g. '0')
  * @returns {Promise<{url: string, liveToken: string}|null>}
  */
 async function getStreamUrl(deviceId, channelId = '0') {
-  // Try HD (streamId=0) first, fall back to SD (streamId=1)
   for (const streamId of [0, 1]) {
     try {
       const result = await bindDeviceLive(deviceId, channelId, streamId);
 
-      // Extract HLS URL from streams array
       const hlsUrl =
         result?.streams?.find((s) => s.hls)?.hls ||
         result?.hls ||
@@ -77,10 +107,39 @@ async function getStreamUrl(deviceId, channelId = '0') {
         };
       }
     } catch (error) {
-      logger.warn(`bindDeviceLive failed (streamId=${streamId}) for ${deviceId}`, {
-        error: error.message,
-        code: error.code,
-      });
+      if (error.code === 'LV1001') {
+        // Stream session already active — retrieve existing URL
+        logger.info(`Stream already active for ${deviceId}:${channelId}, fetching existing URL`);
+
+        const existing = await getLiveStreamInfo(deviceId, channelId);
+        if (existing?.url) return existing;
+
+        // getLiveStreamInfo returned nothing — try unbind+rebind
+        logger.info(`Attempting unbind+rebind for ${deviceId}:${channelId}`);
+        try {
+          const raw = await callImouApi('/getLiveStreamInfo', { deviceId, channelId });
+          if (raw?.liveToken) {
+            await unbindDeviceLive(raw.liveToken);
+            const retry = await bindDeviceLive(deviceId, channelId, streamId);
+            const retryUrl =
+              retry?.streams?.find((s) => s.hls)?.hls ||
+              retry?.hls || null;
+            if (retryUrl) {
+              return { url: retryUrl, liveToken: retry?.liveToken || null, coverUrl: null };
+            }
+          }
+        } catch (retryErr) {
+          logger.warn(`Unbind+rebind failed for ${deviceId}`, { error: retryErr.message });
+        }
+
+        // All strategies exhausted for this streamId — do NOT try SD if HD already active
+        break;
+      } else {
+        logger.warn(`bindDeviceLive failed (streamId=${streamId}) for ${deviceId}`, {
+          error: error.message,
+          code: error.code,
+        });
+      }
     }
   }
 
@@ -91,5 +150,6 @@ async function getStreamUrl(deviceId, channelId = '0') {
 module.exports = {
   bindDeviceLive,
   unbindDeviceLive,
+  getLiveStreamInfo,
   getStreamUrl,
 };
