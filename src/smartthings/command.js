@@ -18,6 +18,7 @@ const { movePTZ, locationPTZ, stopPTZ, PTZ_DIRECTION } = require('../imou/ptz');
 const { callImouApi } = require('../imou/client');
 const logger = require('../utils/logger');
 const { buildLiveStreamProxyUrl, buildSnapshotProxyUrl } = require('../utils/publicUrl');
+const { supportsSwitch, supportsVideoCamera } = require('./profile');
 
 /**
  * Process a single command for a device.
@@ -65,12 +66,14 @@ async function processCommand(externalDeviceId, command, context = {}) {
           attribute: 'switch',
           value: cmd === 'on' ? 'on' : 'off',
         });
-        states.push({
-          component: 'main',
-          capability: 'st.videoCamera',
-          attribute: 'camera',
-          value: cmd === 'on' ? 'on' : 'off',
-        });
+        if (supportsVideoCamera()) {
+          states.push({
+            component: 'main',
+            capability: 'st.videoCamera',
+            attribute: 'camera',
+            value: cmd === 'on' ? 'on' : 'off',
+          });
+        }
         break;
       }
 
@@ -92,12 +95,23 @@ async function processCommand(externalDeviceId, command, context = {}) {
         const onlineData = await getDeviceOnline(deviceId, channelId);
         const isOnline = onlineData?.onLine === '1';
 
-        states.push({
-          component: 'main',
-          capability: 'st.videoCamera',
-          attribute: 'camera',
-          value: isOnline ? 'on' : 'unavailable',
-        });
+        if (supportsSwitch()) {
+          states.push({
+            component: 'main',
+            capability: 'st.switch',
+            attribute: 'switch',
+            value: isOnline ? 'on' : 'off',
+          });
+        }
+
+        if (supportsVideoCamera()) {
+          states.push({
+            component: 'main',
+            capability: 'st.videoCamera',
+            attribute: 'camera',
+            value: isOnline ? 'on' : 'unavailable',
+          });
+        }
 
         if (isOnline) {
           const newSnapshot = buildSnapshotProxyUrl(baseUrl, deviceId, channelId);
@@ -144,19 +158,23 @@ async function processCommand(externalDeviceId, command, context = {}) {
               attribute: 'stream',
               value: smartThingsStream,
             });
-            states.push({
-              component: 'main',
-              capability: 'st.videoCamera',
-              attribute: 'camera',
-              value: 'on',
-            });
+            if (supportsVideoCamera()) {
+              states.push({
+                component: 'main',
+                capability: 'st.videoCamera',
+                attribute: 'camera',
+                value: 'on',
+              });
+            }
           } else {
-            states.push({
-              component: 'main',
-              capability: 'st.videoCamera',
-              attribute: 'camera',
-              value: 'unavailable',
-            });
+            if (supportsVideoCamera()) {
+              states.push({
+                component: 'main',
+                capability: 'st.videoCamera',
+                attribute: 'camera',
+                value: 'unavailable',
+              });
+            }
           }
         }
 

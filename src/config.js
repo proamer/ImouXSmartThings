@@ -23,7 +23,12 @@ const config = {
     clientId: process.env.ST_CLIENT_ID || '',
     clientSecret: process.env.ST_CLIENT_SECRET || '',
     webhookSecret: process.env.WEBHOOK_SECRET || '',
-    deviceHandlerType: process.env.ST_DEVICE_HANDLER_TYPE || 'ImouCamera',
+    deviceHandlerType:
+      process.env.ST_DEVICE_PROFILE_ID ||
+      process.env.ST_DEVICE_HANDLER_TYPE ||
+      'c2c-camera-rtsp-1',
+    manufacturerName: process.env.ST_MANUFACTURER_NAME || 'PROAMER',
+    modelName: process.env.ST_MODEL_NAME || 'proamer',
   },
 
   // OAuth2 Server (for SmartThings Schema Connector)

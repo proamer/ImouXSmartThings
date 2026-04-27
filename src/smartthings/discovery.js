@@ -19,6 +19,7 @@
 const { listAllDevices } = require('../imou/devices');
 const config = require('../config');
 const logger = require('../utils/logger');
+const { getDeviceHandlerType, supportsSwitch, supportsVideoCamera } = require('./profile');
 
 /**
  * Build the initial states for a newly discovered camera.
@@ -27,26 +28,43 @@ const logger = require('../utils/logger');
  * @returns {Array} Initial states array
  */
 function buildInitialStates() {
-  return [
+  const states = [
     {
       component: 'main',
       capability: 'st.healthCheck',
       attribute: 'healthStatus',
       value: 'online',
     },
-    {
+  ];
+
+  if (supportsSwitch()) {
+    states.push({
+      component: 'main',
+      capability: 'st.switch',
+      attribute: 'switch',
+      value: 'on',
+    });
+  }
+
+  if (supportsVideoCamera()) {
+    states.push({
       component: 'main',
       capability: 'st.videoCamera',
       attribute: 'camera',
       value: 'on',
-    },
+    });
+  }
+
+  states.push(
     {
       component: 'main',
       capability: 'st.motionSensor',
       attribute: 'motion',
       value: 'inactive',
-    },
-  ];
+    }
+  );
+
+  return states;
 }
 
 /**
@@ -74,10 +92,10 @@ async function handleDiscovery(requestId) {
         const deviceProfile = {
           externalDeviceId,
           friendlyName,
-          deviceHandlerType: config.smartthings.deviceHandlerType,
+          deviceHandlerType: getDeviceHandlerType(),
           manufacturerInfo: {
-            manufacturerName: 'Imou',
-            modelName: channel.productId || 'IPC',
+            manufacturerName: config.smartthings.manufacturerName,
+            modelName: config.smartthings.modelName,
             hwVersion: '1.0',
             swVersion: '1.0',
           },

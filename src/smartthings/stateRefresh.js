@@ -11,6 +11,7 @@ const { getDeviceOnline } = require('../imou/devices');
 const { toSmartThingsStream } = require('../imou/live');
 const logger = require('../utils/logger');
 const { buildLiveStreamProxyUrl, buildSnapshotProxyUrl } = require('../utils/publicUrl');
+const { supportsSwitch, supportsVideoCamera } = require('./profile');
 
 /**
  * Parse an external device ID back into Imou device/channel IDs.
@@ -43,13 +44,23 @@ async function getDeviceState(externalDeviceId, baseUrl) {
     const onlineData = await getDeviceOnline(deviceId, channelId);
     const isOnline = onlineData?.onLine === '1';
 
-    // st.videoCamera
-    states.push({
-      component: 'main',
-      capability: 'st.videoCamera',
-      attribute: 'camera',
-      value: isOnline ? 'on' : 'unavailable',
-    });
+    if (supportsSwitch()) {
+      states.push({
+        component: 'main',
+        capability: 'st.switch',
+        attribute: 'switch',
+        value: isOnline ? 'on' : 'off',
+      });
+    }
+
+    if (supportsVideoCamera()) {
+      states.push({
+        component: 'main',
+        capability: 'st.videoCamera',
+        attribute: 'camera',
+        value: isOnline ? 'on' : 'unavailable',
+      });
+    }
 
     // 2. Get snapshot URL (only if online)
     if (isOnline) {
@@ -108,12 +119,6 @@ async function getDeviceState(externalDeviceId, baseUrl) {
     states.push(
       {
         component: 'main',
-        capability: 'st.videoCamera',
-        attribute: 'camera',
-        value: 'unavailable',
-      },
-      {
-        component: 'main',
         capability: 'st.healthCheck',
         attribute: 'healthStatus',
         value: 'offline',
@@ -125,6 +130,24 @@ async function getDeviceState(externalDeviceId, baseUrl) {
         value: 'offline',
       }
     );
+
+    if (supportsSwitch()) {
+      states.unshift({
+        component: 'main',
+        capability: 'st.switch',
+        attribute: 'switch',
+        value: 'off',
+      });
+    }
+
+    if (supportsVideoCamera()) {
+      states.unshift({
+        component: 'main',
+        capability: 'st.videoCamera',
+        attribute: 'camera',
+        value: 'unavailable',
+      });
+    }
   }
 
   return {
