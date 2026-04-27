@@ -6,8 +6,9 @@
 require('dotenv').config();
 
 function getSmartThingsDeviceHandlerType() {
+  const useCustomProfile = process.env.ST_USE_CUSTOM_PROFILE === 'true';
   const profileId = process.env.ST_DEVICE_PROFILE_ID;
-  if (profileId) {
+  if (useCustomProfile && profileId) {
     return profileId;
   }
 
