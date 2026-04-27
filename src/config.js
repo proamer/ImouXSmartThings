@@ -23,6 +23,7 @@ const config = {
     clientId: process.env.ST_CLIENT_ID || '',
     clientSecret: process.env.ST_CLIENT_SECRET || '',
     webhookSecret: process.env.WEBHOOK_SECRET || '',
+    deviceHandlerType: process.env.ST_DEVICE_HANDLER_TYPE || 'ImouCamera',
   },
 
   // OAuth2 Server (for SmartThings Schema Connector)

@@ -17,6 +17,7 @@
  */
 
 const { listAllDevices } = require('../imou/devices');
+const config = require('../config');
 const logger = require('../utils/logger');
 
 /**
@@ -35,15 +36,15 @@ function buildInitialStates() {
     },
     {
       component: 'main',
-      capability: 'st.switch',
-      attribute: 'switch',
+      capability: 'st.videoCamera',
+      attribute: 'camera',
       value: 'on',
     },
     {
       component: 'main',
-      capability: 'st.videoCamera',
-      attribute: 'camera',
-      value: 'on',
+      capability: 'st.motionSensor',
+      attribute: 'motion',
+      value: 'inactive',
     },
   ];
 }
@@ -73,7 +74,7 @@ async function handleDiscovery(requestId) {
         const deviceProfile = {
           externalDeviceId,
           friendlyName,
-          deviceHandlerType: 'c2c-camera-rtsp-2',
+          deviceHandlerType: config.smartthings.deviceHandlerType,
           manufacturerInfo: {
             manufacturerName: 'Imou',
             modelName: channel.productId || 'IPC',

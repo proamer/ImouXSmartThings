@@ -12,12 +12,12 @@
  */
 
 const { parseExternalDeviceId } = require('./stateRefresh');
-const { getStreamUrl, toSmartThingsStream } = require('../imou/live');
+const { toSmartThingsStream } = require('../imou/live');
 const { getDeviceOnline } = require('../imou/devices');
 const { movePTZ, locationPTZ, stopPTZ, PTZ_DIRECTION } = require('../imou/ptz');
 const { callImouApi } = require('../imou/client');
 const logger = require('../utils/logger');
-const { buildSnapshotProxyUrl } = require('../utils/publicUrl');
+const { buildLiveStreamProxyUrl, buildSnapshotProxyUrl } = require('../utils/publicUrl');
 
 /**
  * Process a single command for a device.
@@ -94,12 +94,6 @@ async function processCommand(externalDeviceId, command, context = {}) {
 
         states.push({
           component: 'main',
-          capability: 'st.switch',
-          attribute: 'switch',
-          value: isOnline ? 'on' : 'off',
-        });
-        states.push({
-          component: 'main',
           capability: 'st.videoCamera',
           attribute: 'camera',
           value: isOnline ? 'on' : 'unavailable',
@@ -116,8 +110,8 @@ async function processCommand(externalDeviceId, command, context = {}) {
             });
           }
 
-          const streamResult = await getStreamUrl(deviceId, channelId);
-          const smartThingsStream = toSmartThingsStream(streamResult);
+          const streamUrl = buildLiveStreamProxyUrl(baseUrl, deviceId, channelId);
+          const smartThingsStream = toSmartThingsStream(streamUrl);
           if (smartThingsStream) {
             states.push({
               component: 'main',
@@ -140,8 +134,8 @@ async function processCommand(externalDeviceId, command, context = {}) {
       // SmartThings requests live video by issuing startStream / stopStream commands
       case 'st.videoStream': {
         if (cmd === 'startStream') {
-          const streamResult = await getStreamUrl(deviceId, channelId);
-          const smartThingsStream = toSmartThingsStream(streamResult);
+          const streamUrl = buildLiveStreamProxyUrl(baseUrl, deviceId, channelId);
+          const smartThingsStream = toSmartThingsStream(streamUrl);
 
           if (smartThingsStream) {
             states.push({

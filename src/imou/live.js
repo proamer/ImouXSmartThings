@@ -10,6 +10,7 @@
 const { callImouApi } = require('./client');
 const logger = require('../utils/logger');
 const axios = require('axios');
+const { buildLiveSegmentProxyUrl } = require('../utils/publicUrl');
 
 /**
  * Create/bind a live stream address for a device.
@@ -97,6 +98,82 @@ async function isLiveStreamUrlReachable(url) {
     });
     return false;
   }
+}
+
+function getFinalResponseUrl(response, fallbackUrl) {
+  return response?.request?.res?.responseUrl || fallbackUrl;
+}
+
+function rewritePlaylistUrls(playlist, playlistUrl, baseUrl) {
+  return String(playlist)
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        return line;
+      }
+
+      const absoluteUrl = new URL(trimmed, playlistUrl).toString();
+      return buildLiveSegmentProxyUrl(baseUrl, absoluteUrl);
+    })
+    .join('\n');
+}
+
+async function getLivePlaylist(deviceId, channelId = '0', baseUrl = '') {
+  const stream = await getStreamUrl(deviceId, channelId);
+  if (!stream?.url) {
+    return null;
+  }
+
+  const response = await axios.get(stream.url, {
+    timeout: 15000,
+    responseType: 'text',
+    maxRedirects: 5,
+    validateStatus: () => true,
+  });
+
+  if (response.status < 200 || response.status >= 300) {
+    logger.warn('Live playlist request failed', {
+      status: response.status,
+      url: String(stream.url).substring(0, 120),
+    });
+    return null;
+  }
+
+  const finalUrl = getFinalResponseUrl(response, stream.url);
+  const playlist = rewritePlaylistUrls(response.data, finalUrl, baseUrl);
+
+  return {
+    playlist,
+    sourceUrl: finalUrl,
+  };
+}
+
+async function getLiveSegment(segmentUrl) {
+  const parsedUrl = new URL(segmentUrl);
+  if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
+    throw new Error('Unsupported segment URL protocol');
+  }
+
+  const response = await axios.get(parsedUrl.toString(), {
+    timeout: 15000,
+    responseType: 'arraybuffer',
+    maxRedirects: 5,
+    validateStatus: () => true,
+  });
+
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(`Segment request failed with status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+
+  return {
+    buffer: Buffer.from(response.data),
+    contentType: String(response.headers['content-type'] || '').includes('octet-stream')
+      ? 'video/mp2t'
+      : response.headers['content-type'] || 'video/mp2t',
+  };
 }
 
 /**
@@ -193,7 +270,7 @@ async function getStreamUrl(deviceId, channelId = '0') {
  * @returns {{InHomeURL: string, OutHomeURL: string}|null}
  */
 function toSmartThingsStream(streamResult) {
-  const url = streamResult?.url;
+  const url = typeof streamResult === 'string' ? streamResult : streamResult?.url;
   if (!url) {
     return null;
   }
@@ -209,5 +286,7 @@ module.exports = {
   unbindDeviceLive,
   getLiveStreamInfo,
   getStreamUrl,
+  getLivePlaylist,
+  getLiveSegment,
   toSmartThingsStream,
 };

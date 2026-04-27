@@ -18,8 +18,10 @@
 const express = require('express');
 const logger = require('./utils/logger');
 const { getSnapshotBuffer } = require('./imou/snapshot');
+const { getLivePlaylist, getLiveSegment } = require('./imou/live');
 const { router: smartthingsRouter } = require('./smartthings/webhook');
 const oauthRouter = require('./smartthings/oauth');
+const { getPublicBaseUrl } = require('./utils/publicUrl');
 
 const app = express();
 
@@ -71,6 +73,52 @@ app.get('/snapshot/:deviceId/:channelId?', async (req, res, next) => {
   }
 });
 
+// HLS proxy for SmartThings. This keeps playlists and segments on a standard HTTPS URL.
+app.get('/stream/:deviceId/:channelId/live.m3u8', async (req, res, next) => {
+  const { deviceId, channelId = '0' } = req.params;
+
+  try {
+    const live = await getLivePlaylist(deviceId, channelId, getPublicBaseUrl(req));
+    if (!live) {
+      return res.status(404).send('Stream not available');
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    return res.send(live.playlist);
+  } catch (error) {
+    logger.error('Live playlist proxy failed', {
+      deviceId,
+      channelId,
+      error: error.message,
+    });
+    return next(error);
+  }
+});
+
+app.get('/stream-segment', async (req, res, next) => {
+  const segmentUrl = req.query.url;
+
+  try {
+    if (!segmentUrl || typeof segmentUrl !== 'string') {
+      return res.status(400).send('Missing segment URL');
+    }
+
+    const segment = await getLiveSegment(segmentUrl);
+    res.setHeader('Content-Type', segment.contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Content-Length', segment.buffer.length);
+    return res.send(segment.buffer);
+  } catch (error) {
+    logger.error('Live segment proxy failed', {
+      error: error.message,
+    });
+    return next(error);
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -93,6 +141,7 @@ app.get('/', (req, res) => {
       oauth_token: 'POST /oauth/token',
       health: 'GET /health',
       snapshot: 'GET /snapshot/:deviceId/:channelId?',
+      stream: 'GET /stream/:deviceId/:channelId/live.m3u8',
     },
   });
 });

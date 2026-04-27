@@ -8,9 +8,9 @@
  */
 
 const { getDeviceOnline } = require('../imou/devices');
-const { getStreamUrl, toSmartThingsStream } = require('../imou/live');
+const { toSmartThingsStream } = require('../imou/live');
 const logger = require('../utils/logger');
-const { buildSnapshotProxyUrl } = require('../utils/publicUrl');
+const { buildLiveStreamProxyUrl, buildSnapshotProxyUrl } = require('../utils/publicUrl');
 
 /**
  * Parse an external device ID back into Imou device/channel IDs.
@@ -43,14 +43,6 @@ async function getDeviceState(externalDeviceId, baseUrl) {
     const onlineData = await getDeviceOnline(deviceId, channelId);
     const isOnline = onlineData?.onLine === '1';
 
-    // st.switch
-    states.push({
-      component: 'main',
-      capability: 'st.switch',
-      attribute: 'switch',
-      value: isOnline ? 'on' : 'off',
-    });
-
     // st.videoCamera
     states.push({
       component: 'main',
@@ -75,10 +67,10 @@ async function getDeviceState(externalDeviceId, baseUrl) {
         logger.warn(`Snapshot failed for ${deviceId}:${channelId}`, { error: snapErr.message });
       }
 
-      // 3. Get HLS live stream URL
+      // 3. Publish a proxied HLS URL on our public HTTPS host.
       try {
-        const streamResult = await getStreamUrl(deviceId, channelId);
-        const smartThingsStream = toSmartThingsStream(streamResult);
+        const streamUrl = buildLiveStreamProxyUrl(baseUrl, deviceId, channelId);
+        const smartThingsStream = toSmartThingsStream(streamUrl);
         if (smartThingsStream) {
           states.push({
             component: 'main',
@@ -114,12 +106,6 @@ async function getDeviceState(externalDeviceId, baseUrl) {
 
     // Return offline state on error
     states.push(
-      {
-        component: 'main',
-        capability: 'st.switch',
-        attribute: 'switch',
-        value: 'off',
-      },
       {
         component: 'main',
         capability: 'st.videoCamera',
