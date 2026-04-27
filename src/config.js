@@ -5,6 +5,20 @@
 
 require('dotenv').config();
 
+function getSmartThingsDeviceHandlerType() {
+  const profileId = process.env.ST_DEVICE_PROFILE_ID;
+  if (profileId) {
+    return profileId;
+  }
+
+  const handlerType = process.env.ST_DEVICE_HANDLER_TYPE;
+  if (handlerType && handlerType !== 'ImouCamera') {
+    return handlerType;
+  }
+
+  return 'c2c-camera-rtsp-1';
+}
+
 const config = {
   // Server
   port: parseInt(process.env.PORT, 10) || 3000,
@@ -23,10 +37,7 @@ const config = {
     clientId: process.env.ST_CLIENT_ID || '',
     clientSecret: process.env.ST_CLIENT_SECRET || '',
     webhookSecret: process.env.WEBHOOK_SECRET || '',
-    deviceHandlerType:
-      process.env.ST_DEVICE_PROFILE_ID ||
-      process.env.ST_DEVICE_HANDLER_TYPE ||
-      'c2c-camera-rtsp-1',
+    deviceHandlerType: getSmartThingsDeviceHandlerType(),
     manufacturerName: process.env.ST_MANUFACTURER_NAME || 'PROAMER',
     modelName: process.env.ST_MODEL_NAME || 'proamer',
   },
