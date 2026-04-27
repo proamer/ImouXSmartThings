@@ -9,6 +9,7 @@
 
 const { callImouApi } = require('./client');
 const logger = require('../utils/logger');
+const axios = require('axios');
 
 /**
  * Create/bind a live stream address for a device.
@@ -75,6 +76,29 @@ async function getLiveStreamInfo(deviceId, channelId = '0') {
   }
 }
 
+async function isLiveStreamUrlReachable(url) {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const response = await axios.get(url, {
+      timeout: 10000,
+      responseType: 'text',
+      maxRedirects: 5,
+      validateStatus: () => true,
+    });
+
+    return response.status >= 200 && response.status < 300;
+  } catch (error) {
+    logger.warn('Live stream URL validation failed', {
+      error: error.message,
+      url: String(url).substring(0, 120),
+    });
+    return false;
+  }
+}
+
 /**
  * Get a usable HLS stream URL for a device.
  *
@@ -117,7 +141,14 @@ async function getStreamUrl(deviceId, channelId = '0') {
         logger.info(`Stream already active for ${deviceId}:${channelId}, fetching existing URL`);
 
         const existing = await getLiveStreamInfo(deviceId, channelId);
-        if (existing?.url) return existing;
+        if (existing?.url) {
+          const isReachable = await isLiveStreamUrlReachable(existing.url);
+          if (isReachable) {
+            return existing;
+          }
+
+          logger.info(`Existing HLS URL is stale for ${deviceId}:${channelId}, rebinding stream`);
+        }
 
         // getLiveStreamInfo returned nothing — try unbind+rebind
         logger.info(`Attempting unbind+rebind for ${deviceId}:${channelId}`);
