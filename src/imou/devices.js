@@ -63,13 +63,11 @@ async function listAllDevices() {
  * Check if a device is online.
  *
  * @param {string} deviceId - Imou device serial number
- * @param {string} [channelId='0'] - Channel ID
  * @returns {Promise<object>} { onLine: "1" | "0" }
  */
-async function getDeviceOnline(deviceId, channelId = '0') {
+async function getDeviceOnline(deviceId) {
   const data = await callImouApi('/deviceOnline', {
     deviceId,
-    channelId,
   });
 
   return data;

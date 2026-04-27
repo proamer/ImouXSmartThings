@@ -1,0 +1,362 @@
+{
+  "info": {
+    "_postman_id": "f6f2a1de-ec8d-4d31-a7d1-0dc62e9d7c95",
+    "name": "ImouXSmartThings",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const secret = pm.environment.get('IMOU_APP_SECRET') || '';",
+          "const nonce = pm.variables.replaceIn('{{$guid}}');",
+          "const time = String(pm.variables.replaceIn('{{$timestamp}}'));",
+          "const raw = `time:${time},nonce:${nonce},appSecret:${secret}`;",
+          "const sign = CryptoJS.MD5(raw).toString();",
+          "",
+          "pm.environment.set('NONCE', nonce);",
+          "pm.environment.set('TIME', time);",
+          "pm.environment.set('SIGN', sign);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "default_channel_id",
+      "value": "0"
+    }
+  ],
+  "item": [
+    {
+      "name": "SmartThings",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Discovery",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "const firstDevice = json.devices && json.devices[0];",
+                  "if (firstDevice && firstDevice.externalDeviceId) {",
+                  "  pm.environment.set('external_device_id', firstDevice.externalDeviceId);",
+                  "  const match = firstDevice.externalDeviceId.match(/^imou-(.*)-([^-/]+)$/);",
+                  "  if (match) {",
+                  "    pm.environment.set('device_id', match[1]);",
+                  "    pm.environment.set('channel_id', match[2]);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {\n    \"schema\": \"st-schema\",\n    \"version\": \"1.0\",\n    \"interactionType\": \"discoveryRequest\",\n    \"requestId\": \"test-discovery-001\"\n  },\n  \"authentication\": {\n    \"tokenType\": \"Bearer\",\n    \"token\": \"{{smartthings_test_token}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/smartthings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "smartthings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "State Refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {\n    \"schema\": \"st-schema\",\n    \"version\": \"1.0\",\n    \"interactionType\": \"stateRefreshRequest\",\n    \"requestId\": \"test-refresh-001\"\n  },\n  \"authentication\": {\n    \"tokenType\": \"Bearer\",\n    \"token\": \"{{smartthings_test_token}}\"\n  },\n  \"devices\": [\n    {\n      \"externalDeviceId\": \"{{external_device_id}}\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/smartthings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "smartthings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Image Capture Command",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {\n    \"schema\": \"st-schema\",\n    \"version\": \"1.0\",\n    \"interactionType\": \"commandRequest\",\n    \"requestId\": \"test-command-image-001\"\n  },\n  \"authentication\": {\n    \"tokenType\": \"Bearer\",\n    \"token\": \"{{smartthings_test_token}}\"\n  },\n  \"devices\": [\n    {\n      \"externalDeviceId\": \"{{external_device_id}}\",\n      \"commands\": [\n        {\n          \"component\": \"main\",\n          \"capability\": \"st.imageCapture\",\n          \"command\": \"take\",\n          \"arguments\": []\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/smartthings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "smartthings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Command",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headers\": {\n    \"schema\": \"st-schema\",\n    \"version\": \"1.0\",\n    \"interactionType\": \"commandRequest\",\n    \"requestId\": \"test-command-refresh-001\"\n  },\n  \"authentication\": {\n    \"tokenType\": \"Bearer\",\n    \"token\": \"{{smartthings_test_token}}\"\n  },\n  \"devices\": [\n    {\n      \"externalDeviceId\": \"{{external_device_id}}\",\n      \"commands\": [\n        {\n          \"component\": \"main\",\n          \"capability\": \"st.refresh\",\n          \"command\": \"refresh\",\n          \"arguments\": []\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/smartthings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "smartthings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Snapshot Proxy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/snapshot/{{device_id}}/{{channel_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "snapshot",
+                "{{device_id}}",
+                "{{channel_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Imou",
+      "item": [
+        {
+          "name": "Get Access Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "const token = json.result && json.result.data && json.result.data.accessToken;",
+                  "if (token) {",
+                  "  pm.environment.set('IMOU_ACCESS_TOKEN', token);",
+                  "}",
+                  "",
+                  "const expireTime = json.result && json.result.data && json.result.data.expireTime;",
+                  "if (expireTime) {",
+                  "  pm.environment.set('IMOU_ACCESS_TOKEN_EXPIRE_TIME', String(expireTime));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system\": {\n    \"ver\": \"1.0\",\n    \"appId\": \"{{IMOU_APP_ID}}\",\n    \"sign\": \"{{SIGN}}\",\n    \"time\": {{TIME}},\n    \"nonce\": \"{{NONCE}}\"\n  },\n  \"id\": \"1\",\n  \"params\": {}\n}"
+            },
+            "url": {
+              "raw": "{{imou_api_base}}/accessToken",
+              "host": [
+                "{{imou_api_base}}"
+              ],
+              "path": [
+                "accessToken"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Device Base List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system\": {\n    \"ver\": \"1.0\",\n    \"appId\": \"{{IMOU_APP_ID}}\",\n    \"sign\": \"{{SIGN}}\",\n    \"time\": {{TIME}},\n    \"nonce\": \"{{NONCE}}\"\n  },\n  \"id\": \"device-list-001\",\n  \"params\": {\n    \"token\": \"{{IMOU_ACCESS_TOKEN}}\",\n    \"bindId\": -1,\n    \"limit\": 128,\n    \"type\": \"bindAndShare\",\n    \"needApInfo\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{imou_api_base}}/deviceBaseList",
+              "host": [
+                "{{imou_api_base}}"
+              ],
+              "path": [
+                "deviceBaseList"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Device Online",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system\": {\n    \"ver\": \"1.0\",\n    \"appId\": \"{{IMOU_APP_ID}}\",\n    \"sign\": \"{{SIGN}}\",\n    \"time\": {{TIME}},\n    \"nonce\": \"{{NONCE}}\"\n  },\n  \"id\": \"device-online-001\",\n  \"params\": {\n    \"token\": \"{{IMOU_ACCESS_TOKEN}}\",\n    \"deviceId\": \"{{device_id}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{imou_api_base}}/deviceOnline",
+              "host": [
+                "{{imou_api_base}}"
+              ],
+              "path": [
+                "deviceOnline"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Device Snap",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system\": {\n    \"ver\": \"1.0\",\n    \"appId\": \"{{IMOU_APP_ID}}\",\n    \"sign\": \"{{SIGN}}\",\n    \"time\": {{TIME}},\n    \"nonce\": \"{{NONCE}}\"\n  },\n  \"id\": \"snapshot-001\",\n  \"params\": {\n    \"token\": \"{{IMOU_ACCESS_TOKEN}}\",\n    \"deviceId\": \"{{device_id}}\",\n    \"channelId\": \"{{channel_id}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{imou_api_base}}/setDeviceSnap",
+              "host": [
+                "{{imou_api_base}}"
+              ],
+              "path": [
+                "setDeviceSnap"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bind Device Live",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system\": {\n    \"ver\": \"1.0\",\n    \"appId\": \"{{IMOU_APP_ID}}\",\n    \"sign\": \"{{SIGN}}\",\n    \"time\": {{TIME}},\n    \"nonce\": \"{{NONCE}}\"\n  },\n  \"id\": \"live-001\",\n  \"params\": {\n    \"token\": \"{{IMOU_ACCESS_TOKEN}}\",\n    \"deviceId\": \"{{device_id}}\",\n    \"channelId\": \"{{channel_id}}\",\n    \"streamId\": 0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{imou_api_base}}/bindDeviceLive",
+              "host": [
+                "{{imou_api_base}}"
+              ],
+              "path": [
+                "bindDeviceLive"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
