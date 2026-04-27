@@ -4,15 +4,49 @@
  * Handles `discoveryRequest` from SmartThings Cloud.
  * Fetches all Imou cameras and maps them to SmartThings device profiles.
  *
- * Each camera is reported with these capabilities:
- * - st.switch (on/off)
- * - st.videoCamera (camera status)
- * - st.imageCapture (snapshot)
- * - st.refresh (manual refresh)
+ * IMPORTANT: Discovery response must include initial `states` for each device
+ * so SmartThings knows the device is online from the start.
+ * Without initial states, SmartThings defaults to offline/unavailable.
+ *
+ * Capabilities declared per camera channel:
+ * - st.videoCamera    (camera on/off/unavailable)
+ * - st.videoStream    (HLS stream URL)
+ * - st.imageCapture   (snapshot URL)
+ * - st.switch         (on/off control)
+ * - st.healthCheck    (online/offline status)
  */
 
-const { listAllDevices, getDeviceOnline } = require('../imou/devices');
+const { listAllDevices } = require('../imou/devices');
 const logger = require('../utils/logger');
+
+/**
+ * Build the initial states for a newly discovered camera.
+ * We report online/on optimistically; stateRefresh will correct if wrong.
+ *
+ * @returns {Array} Initial states array
+ */
+function buildInitialStates() {
+  return [
+    {
+      component: 'main',
+      capability: 'st.healthCheck',
+      attribute: 'healthStatus',
+      value: 'online',
+    },
+    {
+      component: 'main',
+      capability: 'st.switch',
+      attribute: 'switch',
+      value: 'on',
+    },
+    {
+      component: 'main',
+      capability: 'st.videoCamera',
+      attribute: 'camera',
+      value: 'on',
+    },
+  ];
+}
 
 /**
  * Handle a SmartThings discovery request.
@@ -52,6 +86,8 @@ async function handleDiscovery(requestId) {
             categories: ['camera'],
           },
           deviceUniqueId: externalDeviceId,
+          // Initial states — required so SmartThings doesn't show device as offline immediately
+          states: buildInitialStates(),
         };
 
         discoveredDevices.push(deviceProfile);

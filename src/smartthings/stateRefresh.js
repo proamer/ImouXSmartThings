@@ -94,13 +94,21 @@ async function getDeviceState(externalDeviceId, baseUrl) {
       }
     }
 
-    // st.healthCheck
-    states.push({
-      component: 'main',
-      capability: 'st.healthCheck',
-      attribute: 'healthStatus',
-      value: isOnline ? 'online' : 'offline',
-    });
+    // st.healthCheck — both attributes required for c2c-camera
+    states.push(
+      {
+        component: 'main',
+        capability: 'st.healthCheck',
+        attribute: 'healthStatus',
+        value: isOnline ? 'online' : 'offline',
+      },
+      {
+        component: 'main',
+        capability: 'st.healthCheck',
+        attribute: 'DeviceWatch-DeviceStatus',
+        value: isOnline ? 'online' : 'offline',
+      }
+    );
   } catch (error) {
     logger.error(`Failed to get state for device ${externalDeviceId}`, {
       error: error.message,
@@ -124,6 +132,12 @@ async function getDeviceState(externalDeviceId, baseUrl) {
         component: 'main',
         capability: 'st.healthCheck',
         attribute: 'healthStatus',
+        value: 'offline',
+      },
+      {
+        component: 'main',
+        capability: 'st.healthCheck',
+        attribute: 'DeviceWatch-DeviceStatus',
         value: 'offline',
       }
     );
