@@ -9,6 +9,7 @@ const config = {
   // Server
   port: parseInt(process.env.PORT, 10) || 3000,
   nodeEnv: process.env.NODE_ENV || 'development',
+  publicBaseUrl: process.env.PUBLIC_BASE_URL || '',
 
   // Imou Open Platform
   imou: {

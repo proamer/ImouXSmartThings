@@ -8,9 +8,9 @@
  */
 
 const { getDeviceOnline } = require('../imou/devices');
-const { getSnapshot } = require('../imou/snapshot');
 const { getStreamUrl } = require('../imou/live');
 const logger = require('../utils/logger');
+const { buildSnapshotProxyUrl } = require('../utils/publicUrl');
 
 /**
  * Parse an external device ID back into Imou device/channel IDs.
@@ -33,7 +33,7 @@ function parseExternalDeviceId(externalDeviceId) {
  * @param {string} externalDeviceId
  * @returns {Promise<object>} SmartThings device state object
  */
-async function getDeviceState(externalDeviceId) {
+async function getDeviceState(externalDeviceId, baseUrl) {
   const { deviceId, channelId } = parseExternalDeviceId(externalDeviceId);
   const states = [];
 
@@ -62,7 +62,7 @@ async function getDeviceState(externalDeviceId) {
     // 2. Get snapshot URL (only if online)
     if (isOnline) {
       try {
-        const snapshotUrl = await getSnapshot(deviceId, channelId);
+        const snapshotUrl = buildSnapshotProxyUrl(baseUrl, deviceId, channelId);
         if (snapshotUrl) {
           states.push({
             component: 'main',
@@ -142,17 +142,18 @@ async function getDeviceState(externalDeviceId) {
  * @param {Array<object>} devices - List of { externalDeviceId } to refresh
  * @returns {Promise<object>} State refresh response payload
  */
-async function handleStateRefresh(requestId, devices = []) {
+async function handleStateRefresh(requestId, devices = [], context = {}) {
   logger.info('Processing SmartThings state refresh request', {
     requestId,
     deviceCount: devices.length,
   });
 
+  const { baseUrl = '' } = context;
   const deviceStates = [];
 
   // Process all devices in parallel for better performance
   const statePromises = devices.map((device) =>
-    getDeviceState(device.externalDeviceId)
+    getDeviceState(device.externalDeviceId, baseUrl)
   );
 
   const results = await Promise.allSettled(statePromises);

@@ -12,12 +12,12 @@
  */
 
 const { parseExternalDeviceId } = require('./stateRefresh');
-const { getSnapshot } = require('../imou/snapshot');
 const { getStreamUrl } = require('../imou/live');
 const { getDeviceOnline } = require('../imou/devices');
 const { movePTZ, locationPTZ, stopPTZ, PTZ_DIRECTION } = require('../imou/ptz');
 const { callImouApi } = require('../imou/client');
 const logger = require('../utils/logger');
+const { buildSnapshotProxyUrl } = require('../utils/publicUrl');
 
 /**
  * Process a single command for a device.
@@ -26,9 +26,10 @@ const logger = require('../utils/logger');
  * @param {object} command - { component, capability, command, arguments }
  * @returns {Promise<object>} Updated device state
  */
-async function processCommand(externalDeviceId, command) {
+async function processCommand(externalDeviceId, command, context = {}) {
   const { deviceId, channelId } = parseExternalDeviceId(externalDeviceId);
   const { capability, command: cmd, arguments: args } = command;
+  const { baseUrl = '' } = context;
   const states = [];
 
   logger.info(`Processing command`, {
@@ -75,7 +76,7 @@ async function processCommand(externalDeviceId, command) {
 
       // ━━━ Image Capture (snapshot) ━━━━━━━━━━━━━━━━━━━━━━━━
       case 'st.imageCapture': {
-        const snapshotUrl = await getSnapshot(deviceId, channelId);
+        const snapshotUrl = buildSnapshotProxyUrl(baseUrl, deviceId, channelId);
         states.push({
           component: 'main',
           capability: 'st.imageCapture',
@@ -105,7 +106,7 @@ async function processCommand(externalDeviceId, command) {
         });
 
         if (isOnline) {
-          const newSnapshot = await getSnapshot(deviceId, channelId);
+          const newSnapshot = buildSnapshotProxyUrl(baseUrl, deviceId, channelId);
           if (newSnapshot) {
             states.push({
               component: 'main',
@@ -196,7 +197,7 @@ async function processCommand(externalDeviceId, command) {
  * @param {Array<object>} devices - List of device command objects
  * @returns {Promise<object>} Command response payload
  */
-async function handleCommand(requestId, devices = []) {
+async function handleCommand(requestId, devices = [], context = {}) {
   logger.info('Processing SmartThings command request', {
     requestId,
     deviceCount: devices.length,
@@ -208,7 +209,7 @@ async function handleCommand(requestId, devices = []) {
     const { externalDeviceId, commands } = device;
 
     for (const command of commands) {
-      const result = await processCommand(externalDeviceId, command);
+      const result = await processCommand(externalDeviceId, command, context);
       deviceStates.push(result);
     }
   }

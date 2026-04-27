@@ -17,6 +17,7 @@
 
 const express = require('express');
 const logger = require('./utils/logger');
+const { getSnapshotBuffer } = require('./imou/snapshot');
 const { router: smartthingsRouter } = require('./smartthings/webhook');
 const oauthRouter = require('./smartthings/oauth');
 
@@ -44,6 +45,31 @@ app.use('/smartthings', smartthingsRouter);
 // OAuth2 endpoints (required by SmartThings Schema)
 app.use('/oauth', oauthRouter);
 
+// Public snapshot proxy for SmartThings/image clients.
+app.get('/snapshot/:deviceId/:channelId?', async (req, res, next) => {
+  const { deviceId } = req.params;
+  const channelId = req.params.channelId || '0';
+
+  try {
+    const snapshot = await getSnapshotBuffer(deviceId, channelId);
+    if (!snapshot) {
+      return res.status(404).json({ error: 'Snapshot not available' });
+    }
+
+    res.setHeader('Content-Type', snapshot.contentType);
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Content-Length', snapshot.buffer.length);
+    return res.send(snapshot.buffer);
+  } catch (error) {
+    logger.error('Snapshot proxy failed', {
+      deviceId,
+      channelId,
+      error: error.message,
+    });
+    return next(error);
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -65,6 +91,7 @@ app.get('/', (req, res) => {
       oauth_authorize: 'GET /oauth/authorize',
       oauth_token: 'POST /oauth/token',
       health: 'GET /health',
+      snapshot: 'GET /snapshot/:deviceId/:channelId?',
     },
   });
 });

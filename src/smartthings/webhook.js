@@ -17,6 +17,7 @@ const { handleDiscovery } = require('./discovery');
 const { handleStateRefresh } = require('./stateRefresh');
 const { handleCommand } = require('./command');
 const logger = require('../utils/logger');
+const { getPublicBaseUrl } = require('../utils/publicUrl');
 
 const router = express.Router();
 
@@ -41,6 +42,9 @@ router.post('/', async (req, res) => {
 
   try {
     let response;
+    const context = {
+      baseUrl: getPublicBaseUrl(req),
+    };
 
     switch (interactionType) {
       // ━━━ Discovery ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -50,12 +54,12 @@ router.post('/', async (req, res) => {
 
       // ━━━ State Refresh ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       case 'stateRefreshRequest':
-        response = await handleStateRefresh(requestId, body.devices || []);
+        response = await handleStateRefresh(requestId, body.devices || [], context);
         break;
 
       // ━━━ Command ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       case 'commandRequest':
-        response = await handleCommand(requestId, body.devices || []);
+        response = await handleCommand(requestId, body.devices || [], context);
         break;
 
       // ━━━ Grant Callback Access ━━━━━━━━━━━━━━━━━━━━━━━━━
