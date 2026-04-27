@@ -8,6 +8,7 @@
  */
 
 const { callImouApi } = require('./client');
+const config = require('../config');
 const logger = require('../utils/logger');
 const axios = require('axios');
 const { buildLiveSegmentProxyUrl } = require('../utils/publicUrl');
@@ -176,6 +177,23 @@ async function getLiveSegment(segmentUrl) {
   };
 }
 
+function getRtspStreamUrl(deviceId, channelId = '0') {
+  const envKey = `IMOU_RTSP_URL_${String(deviceId).replace(/[^a-zA-Z0-9]/g, '_')}_${String(channelId).replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const explicitUrl = process.env[envKey];
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+
+  const template = config.imou.rtspUrlTemplate;
+  if (!template) {
+    return null;
+  }
+
+  return template
+    .replaceAll('{deviceId}', encodeURIComponent(deviceId))
+    .replaceAll('{channelId}', encodeURIComponent(channelId));
+}
+
 /**
  * Get a usable HLS stream URL for a device.
  *
@@ -288,5 +306,6 @@ module.exports = {
   getStreamUrl,
   getLivePlaylist,
   getLiveSegment,
+  getRtspStreamUrl,
   toSmartThingsStream,
 };

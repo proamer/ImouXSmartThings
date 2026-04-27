@@ -8,7 +8,7 @@
  */
 
 const { getDeviceOnline } = require('../imou/devices');
-const { toSmartThingsStream } = require('../imou/live');
+const { getRtspStreamUrl, toSmartThingsStream } = require('../imou/live');
 const logger = require('../utils/logger');
 const { buildLiveStreamProxyUrl, buildSnapshotProxyUrl } = require('../utils/publicUrl');
 const { supportsSwitch, supportsVideoCamera } = require('./profile');
@@ -80,7 +80,9 @@ async function getDeviceState(externalDeviceId, baseUrl) {
 
       // 3. Publish a proxied HLS URL on our public HTTPS host.
       try {
-        const streamUrl = buildLiveStreamProxyUrl(baseUrl, deviceId, channelId);
+        const streamUrl =
+          getRtspStreamUrl(deviceId, channelId) ||
+          buildLiveStreamProxyUrl(baseUrl, deviceId, channelId);
         const smartThingsStream = toSmartThingsStream(streamUrl);
         if (smartThingsStream) {
           states.push({

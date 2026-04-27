@@ -31,6 +31,7 @@ const config = {
     appId: process.env.IMOU_APP_ID || '',
     appSecret: process.env.IMOU_APP_SECRET || '',
     apiBase: process.env.IMOU_API_BASE || 'https://openapi.easy4ip.com/openapi',
+    rtspUrlTemplate: process.env.IMOU_RTSP_URL_TEMPLATE || '',
   },
 
   // SmartThings
