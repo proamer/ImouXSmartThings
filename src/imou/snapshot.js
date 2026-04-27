@@ -9,6 +9,75 @@ const axios = require('axios');
 const { callImouApi } = require('./client');
 const logger = require('../utils/logger');
 
+function inferImageContentType(buffer, headerValue = '', sourceUrl = '') {
+  const header = String(headerValue || '').toLowerCase();
+  if (header.startsWith('image/')) {
+    return headerValue;
+  }
+
+  if (buffer?.length >= 4) {
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+      return 'image/jpeg';
+    }
+
+    if (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    ) {
+      return 'image/png';
+    }
+
+    if (
+      buffer[0] === 0x47 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x38
+    ) {
+      return 'image/gif';
+    }
+  }
+
+  const normalizedUrl = String(sourceUrl || '').toLowerCase();
+  if (normalizedUrl.includes('.png')) return 'image/png';
+  if (normalizedUrl.includes('.gif')) return 'image/gif';
+
+  return 'image/jpeg';
+}
+
+async function downloadSnapshotWithRetry(snapshotUrl) {
+  const delays = [0, 500, 1000, 2000];
+  let lastError = null;
+
+  for (const delayMs of delays) {
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    try {
+      return await axios.get(snapshotUrl, {
+        responseType: 'arraybuffer',
+        timeout: 30000,
+        headers: {
+          Accept: 'image/*,*/*;q=0.8',
+        },
+        maxRedirects: 5,
+      });
+    } catch (error) {
+      lastError = error;
+      const status = error.response?.status;
+      const shouldRetry = status === 403 || status === 404 || !status;
+
+      if (!shouldRetry) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 /**
  * Capture a snapshot from a camera.
  *
@@ -81,18 +150,17 @@ async function getSnapshotBuffer(deviceId, channelId = '0') {
   }
 
   try {
-    const response = await axios.get(snapshotUrl, {
-      responseType: 'arraybuffer',
-      timeout: 30000,
-      headers: {
-        Accept: 'image/*,*/*;q=0.8',
-      },
-      maxRedirects: 5,
-    });
+    const response = await downloadSnapshotWithRetry(snapshotUrl);
+
+    const buffer = Buffer.from(response.data);
 
     return {
-      buffer: Buffer.from(response.data),
-      contentType: response.headers['content-type'] || 'image/jpeg',
+      buffer,
+      contentType: inferImageContentType(
+        buffer,
+        response.headers['content-type'],
+        snapshotUrl
+      ),
       sourceUrl: snapshotUrl,
     };
   } catch (error) {

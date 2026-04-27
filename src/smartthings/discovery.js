@@ -73,7 +73,7 @@ async function handleDiscovery(requestId) {
         const deviceProfile = {
           externalDeviceId,
           friendlyName,
-          deviceHandlerType: 'c2c-camera',
+          deviceHandlerType: 'c2c-camera-rtsp-2',
           manufacturerInfo: {
             manufacturerName: 'Imou',
             modelName: channel.productId || 'IPC',

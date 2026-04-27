@@ -152,9 +152,31 @@ async function getStreamUrl(deviceId, channelId = '0') {
   return null;
 }
 
+/**
+ * Convert an Imou live stream result to the SmartThings videoStream payload shape.
+ *
+ * SmartThings camera integrations expect InHomeURL / OutHomeURL fields.
+ * For this cloud integration we use the same externally reachable URL for both.
+ *
+ * @param {{url?: string}|null} streamResult
+ * @returns {{InHomeURL: string, OutHomeURL: string}|null}
+ */
+function toSmartThingsStream(streamResult) {
+  const url = streamResult?.url;
+  if (!url) {
+    return null;
+  }
+
+  return {
+    InHomeURL: url,
+    OutHomeURL: url,
+  };
+}
+
 module.exports = {
   bindDeviceLive,
   unbindDeviceLive,
   getLiveStreamInfo,
   getStreamUrl,
+  toSmartThingsStream,
 };

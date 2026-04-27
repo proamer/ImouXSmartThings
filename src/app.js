@@ -59,6 +59,7 @@ app.get('/snapshot/:deviceId/:channelId?', async (req, res, next) => {
     res.setHeader('Content-Type', snapshot.contentType);
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     res.setHeader('Content-Length', snapshot.buffer.length);
+    res.setHeader('Content-Disposition', 'inline');
     return res.send(snapshot.buffer);
   } catch (error) {
     logger.error('Snapshot proxy failed', {

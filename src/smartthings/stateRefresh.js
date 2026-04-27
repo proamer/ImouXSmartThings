@@ -8,7 +8,7 @@
  */
 
 const { getDeviceOnline } = require('../imou/devices');
-const { getStreamUrl } = require('../imou/live');
+const { getStreamUrl, toSmartThingsStream } = require('../imou/live');
 const logger = require('../utils/logger');
 const { buildSnapshotProxyUrl } = require('../utils/publicUrl');
 
@@ -78,15 +78,13 @@ async function getDeviceState(externalDeviceId, baseUrl) {
       // 3. Get HLS live stream URL
       try {
         const streamResult = await getStreamUrl(deviceId, channelId);
-        if (streamResult?.url) {
+        const smartThingsStream = toSmartThingsStream(streamResult);
+        if (smartThingsStream) {
           states.push({
             component: 'main',
             capability: 'st.videoStream',
             attribute: 'stream',
-            value: {
-              protocol: 'hls',
-              uri: streamResult.url,
-            },
+            value: smartThingsStream,
           });
         }
       } catch (streamErr) {
